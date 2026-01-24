@@ -12,7 +12,7 @@ export interface IUser extends Document {
   prenoms: string
   email: string
   password: string
-  direction: mongoose.Types.ObjectId
+  direction?: mongoose.Types.ObjectId // Optionnel avec ?
   poste: string
   role: UserRole
   createdAt: Date
@@ -26,7 +26,14 @@ const UserSchema = new Schema<IUser>(
     prenoms: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    direction: { type: Schema.Types.ObjectId, ref: 'Direction', required: true },
+    direction: { 
+      type: Schema.Types.ObjectId, 
+      ref: 'Direction', 
+      required: function(this: IUser) {
+        // Obligatoire pour AGENT et RESPONSABLE, optionnel pour ADMIN
+        return this.role !== UserRole.ADMIN
+      }
+    },
     poste: { type: String, required: true },
     role: { type: String, enum: Object.values(UserRole), default: UserRole.AGENT }
   },

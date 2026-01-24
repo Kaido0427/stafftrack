@@ -1,3 +1,4 @@
+// backend/src/middlewares/auth.middleware.ts
 import type { Context, Next } from "hono";
 import jwt from "jsonwebtoken";
 
