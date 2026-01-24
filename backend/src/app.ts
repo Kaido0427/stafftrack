@@ -2,6 +2,8 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import authRoutes from './routes/auth.routes.js'
 import directionRoutes from './routes/direction.routes.js'
+import agentRoutes from './routes/agent.routes.js'
+import responsableRoutes from './routes/responsable.routes.js'
 
 const app = new Hono()
 
@@ -23,6 +25,8 @@ app.get('/health', (c) => {
 
 app.route('/auth', authRoutes)
 app.route('/directions', directionRoutes)
+app.route('/responsable', responsableRoutes)
+app.route('/agent', agentRoutes)
 
 
 export default app
