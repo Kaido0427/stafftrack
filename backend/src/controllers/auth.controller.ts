@@ -4,10 +4,11 @@ import User from '../models/user.model.js'
 import { UserRole } from '../models/user.model.js'
 import { generateToken } from '../utils/jwt.js'
 import { generateMatricule } from '../utils/matricule.js'
+import Direction from '../models/direction.model.js'
 
 export class AuthController {
 
-    // 1. Register (MISE À JOUR)
+    // 1. Register (CORRECTION)
     static async register(c: Context) {
         try {
             const { nom, prenoms, email, password, direction, poste, role } = await c.req.json()
@@ -16,6 +17,18 @@ export class AuthController {
             const existingUser = await User.findOne({ email })
             if (existingUser) {
                 return c.json({ error: 'Cet email est déjà utilisé' }, 400)
+            }
+
+            // Vérifier que la direction existe (sauf pour ADMIN)
+            if (role !== UserRole.ADMIN) {
+                if (!direction) {
+                    return c.json({ error: 'La direction est obligatoire pour ce rôle' }, 400)
+                }
+
+                const directionExists = await Direction.findById(direction)
+                if (!directionExists) {
+                    return c.json({ error: 'Direction non trouvée' }, 404)
+                }
             }
 
             // Générer automatiquement le matricule
@@ -31,7 +44,7 @@ export class AuthController {
                 prenoms,
                 email,
                 password: hashedPassword,
-                direction,
+                direction: role === UserRole.ADMIN ? undefined : direction,
                 poste,
                 role: role || UserRole.AGENT
             })
@@ -47,7 +60,8 @@ export class AuthController {
                     nom: user.nom,
                     prenoms: user.prenoms,
                     email: user.email,
-                    role: user.role
+                    role: user.role,
+                    direction: user.direction
                 }
             }, 201)
 
@@ -55,7 +69,6 @@ export class AuthController {
             return c.json({ error: 'Erreur lors de l\'inscription', details: error.message }, 500)
         }
     }
-
     // 2. Login
     static async login(c: Context) {
         try {
@@ -134,18 +147,31 @@ export class AuthController {
             const userId = c.get('user').id
             const { nom, prenoms, email, poste } = await c.req.json()
 
-            // Vérifier si l'email est déjà utilisé par un autre utilisateur
-            if (email) {
+            // Construire l'objet de mise à jour dynamiquement
+            const updateData: any = {}
+
+            if (nom !== undefined) updateData.nom = nom
+            if (prenoms !== undefined) updateData.prenoms = prenoms
+            if (poste !== undefined) updateData.poste = poste
+
+            // Vérifier l'email uniquement s'il est fourni
+            if (email !== undefined) {
                 const existingUser = await User.findOne({ email, _id: { $ne: userId } })
                 if (existingUser) {
                     return c.json({ error: 'Cet email est déjà utilisé' }, 400)
                 }
+                updateData.email = email
+            }
+
+            // Vérifier qu'au moins un champ est fourni
+            if (Object.keys(updateData).length === 0) {
+                return c.json({ error: 'Aucune donnée à mettre à jour' }, 400)
             }
 
             // Mettre à jour l'utilisateur
             const user = await User.findByIdAndUpdate(
                 userId,
-                { nom, prenoms, email, poste },
+                updateData,
                 { new: true, runValidators: true }
             ).populate('direction')
 
@@ -171,7 +197,6 @@ export class AuthController {
             return c.json({ error: 'Erreur lors de la mise à jour du profil', details: error.message }, 500)
         }
     }
-
     // 6. Seed Admin
     static async seedAdmin(c: Context) {
         try {
